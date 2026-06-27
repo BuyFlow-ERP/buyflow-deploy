@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: buyflow-config
+  namespace: buyflow
+  labels:
+    app.kubernetes.io/name: buyflow
+    app.kubernetes.io/part-of: buyflow
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+
+  JPA_DDL_AUTO: "validate"
+  JPA_SHOW_SQL: "false"
+  JPA_FORMAT_SQL: "false"
+
+  DB_POOL_SIZE: "5"
+
+  UPLOAD_DIR: "/app/uploads"
+
+  CORS_ALLOWED_ORIGIN: "https://buyflow-system.168-110-117-4.nip.io"
+
+  JWT_EXPIRATION_MINUTES: "120"
+
+  REQUEST_MAPPING_LOG_LEVEL: "INFO"
+
+  TZ: "Asia/Seoul"
+  JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Seoul -XX:MaxRAMPercentage=75.0"
+
+  SERVER_FORWARD_HEADERS_STRATEGY: "framework"

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: buyflow
+  labels:
+    app.kubernetes.io/name: buyflow
+    app.kubernetes.io/part-of: buyflow

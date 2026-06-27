@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: buyflow-backend
+  namespace: buyflow
+  labels:
+    app: buyflow-backend
+    app.kubernetes.io/name: buyflow-backend
+    app.kubernetes.io/part-of: buyflow
+
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+
+  selector:
+    matchLabels:
+      app: buyflow-backend
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  template:
+    metadata:
+      labels:
+        app: buyflow-backend
+        app.kubernetes.io/name: buyflow-backend
+        app.kubernetes.io/part-of: buyflow
+
+    spec:
+      imagePullSecrets:
+        - name: ocir-secret
+
+      containers:
+        - name: buyflow-backend
+          image: yny.ocir.io/ax0caghpplpc/buyflow-backend:20260627121655
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: buyflow-config
+            - secretRef:
+                name: buyflow-secret
+
+          volumeMounts:
+            - name: oracle-wallet
+              mountPath: /app/wallet
+              readOnly: true
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+      volumes:
+        - name: oracle-wallet
+          secret:
+            secretName: oracle-wallet
