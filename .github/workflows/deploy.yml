@@ -2,10 +2,6 @@ name: Deploy BuyFlow to OKE
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - master
-      - main
 
 env:
   OCIR_REGISTRY: yny.ocir.io
@@ -14,8 +10,8 @@ env:
   FRONTEND_REPO: BuyFlow-ERP/frontend-buyflow
   BACKEND_REPO: BuyFlow-ERP/backend-buyflow
 
-  FRONTEND_REF: hohyeonk8s
-  BACKEND_REF: hohyeonk8s
+  FRONTEND_REF: master
+  BACKEND_REF: main
 
   FRONTEND_IMAGE_NAME: buyflow-frontend
   BACKEND_IMAGE_NAME: buyflow-backend
@@ -36,6 +32,7 @@ jobs:
         with:
           repository: ${{ env.FRONTEND_REPO }}
           ref: ${{ env.FRONTEND_REF }}
+          token: ${{ secrets.CHECKOUT_TOKEN }}
           path: frontend
 
       - name: Checkout backend repository
@@ -43,6 +40,7 @@ jobs:
         with:
           repository: ${{ env.BACKEND_REPO }}
           ref: ${{ env.BACKEND_REF }}
+          token: ${{ secrets.CHECKOUT_TOKEN }}
           path: backend
 
       - name: Install OCI CLI
@@ -223,3 +221,24 @@ jobs:
           kubectl -n "$K8S_NAMESPACE" get pods
           kubectl -n "$K8S_NAMESPACE" get svc
           kubectl -n "$K8S_NAMESPACE" get ingress
+            - name: Verify deployed images
+        shell: bash
+        run: |
+          echo "Backend deployed image:"
+          kubectl -n "$K8S_NAMESPACE" get deployment buyflow-backend \
+            -o jsonpath='{.spec.template.spec.containers[0].image}'
+          echo ""
+
+          echo "Frontend deployed image:"
+          kubectl -n "$K8S_NAMESPACE" get deployment buyflow-frontend \
+            -o jsonpath='{.spec.template.spec.containers[0].image}'
+          echo ""
+
+      - name: Check unhealthy pods
+        shell: bash
+        run: |
+          kubectl -n "$K8S_NAMESPACE" get pods
+          if kubectl -n "$K8S_NAMESPACE" get pods | grep -E "CrashLoopBackOff|ImagePullBackOff|ErrImagePull"; then
+            echo "Unhealthy pod detected"
+            exit 1
+          fi
