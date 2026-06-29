@@ -221,7 +221,8 @@ jobs:
           kubectl -n "$K8S_NAMESPACE" get pods
           kubectl -n "$K8S_NAMESPACE" get svc
           kubectl -n "$K8S_NAMESPACE" get ingress
-            - name: Verify deployed images
+
+      - name: Verify deployed images
         shell: bash
         run: |
           echo "Backend deployed image:"
