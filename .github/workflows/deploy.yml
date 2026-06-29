@@ -14,6 +14,9 @@ env:
   FRONTEND_REPO: BuyFlow-ERP/frontend-buyflow
   BACKEND_REPO: BuyFlow-ERP/backend-buyflow
 
+  FRONTEND_REF: hohyeonk8s
+  BACKEND_REF: hohyeonk8s
+
   FRONTEND_IMAGE_NAME: buyflow-frontend
   BACKEND_IMAGE_NAME: buyflow-backend
 
@@ -25,19 +28,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout deploy repository
-        uses: actions/checkout@v4
-
       - name: Checkout frontend repository
         uses: actions/checkout@v4
         with:
           repository: ${{ env.FRONTEND_REPO }}
+          ref: ${{ env.FRONTEND_REF }}
           path: frontend
 
       - name: Checkout backend repository
         uses: actions/checkout@v4
         with:
           repository: ${{ env.BACKEND_REPO }}
+          ref: ${{ env.BACKEND_REF }}
           path: backend
 
       - name: Install OCI CLI
@@ -87,6 +89,16 @@ jobs:
         env:
           OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
         run: |
+          set -e
+
+          echo "=== checked out branches ==="
+          git -C frontend branch --show-current || true
+          git -C backend branch --show-current || true
+
+          echo "=== verify Dockerfiles ==="
+          test -f ./frontend/Dockerfile || (echo "ERROR: ./frontend/Dockerfile not found" && ls -la ./frontend && exit 1)
+          test -f ./backend/Dockerfile || (echo "ERROR: ./backend/Dockerfile not found" && ls -la ./backend && exit 1)
+
           TAG=$(date +%Y%m%d%H%M%S)
           OCIR_NAMESPACE=$(echo "$OCIR_USERNAME" | cut -d '/' -f 1)
 
@@ -97,6 +109,7 @@ jobs:
           echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> $GITHUB_ENV
 
           docker build \
+            -f ./frontend/Dockerfile \
             --build-arg NEXT_PUBLIC_API_BASE_URL="$PUBLIC_API_BASE_URL" \
             --build-arg API_INTERNAL_BASE_URL="$INTERNAL_API_BASE_URL" \
             --build-arg NEXT_PUBLIC_USE_PURCHASE_REQUEST_MOCK=false \
@@ -111,7 +124,9 @@ jobs:
             --build-arg NEXT_PUBLIC_USE_STOCK_MOCK=false \
             -t "$FRONTEND_IMAGE" ./frontend
 
-          docker build -t "$BACKEND_IMAGE" ./backend
+          docker build \
+            -f ./backend/Dockerfile \
+            -t "$BACKEND_IMAGE" ./backend
 
           docker push "$FRONTEND_IMAGE"
           docker push "$BACKEND_IMAGE"
