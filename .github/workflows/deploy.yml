@@ -1,0 +1,207 @@
+name: Deploy BuyFlow to OKE
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - main
+
+env:
+  OCIR_REGISTRY: yny.ocir.io
+  K8S_NAMESPACE: buyflow
+
+  FRONTEND_REPO: BuyFlow-ERP/frontend-buyflow
+  BACKEND_REPO: BuyFlow-ERP/backend-buyflow
+
+  FRONTEND_IMAGE_NAME: buyflow-frontend
+  BACKEND_IMAGE_NAME: buyflow-backend
+
+  PUBLIC_API_BASE_URL: https://buyflow-system.168-110-117-4.nip.io
+  INTERNAL_API_BASE_URL: http://buyflow-backend-service.buyflow.svc.cluster.local:8080
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout deploy repository
+        uses: actions/checkout@v4
+
+      - name: Checkout frontend repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FRONTEND_REPO }}
+          path: frontend
+
+      - name: Checkout backend repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BACKEND_REPO }}
+          path: backend
+
+      - name: Install OCI CLI
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --user oci-cli
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Configure OCI CLI
+        env:
+          OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+          OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_PRIVATE_KEY_B64: ${{ secrets.OCI_PRIVATE_KEY_B64 }}
+          OCI_REGION: ${{ secrets.OCI_REGION }}
+        run: |
+          mkdir -p "$HOME/.oci"
+
+          echo "$OCI_PRIVATE_KEY_B64" | base64 -d > "$HOME/.oci/oci_api_key.pem"
+          chmod 600 "$HOME/.oci/oci_api_key.pem"
+
+          cat > "$HOME/.oci/config" <<EOF
+          [DEFAULT]
+          user=$OCI_USER_OCID
+          fingerprint=$OCI_FINGERPRINT
+          tenancy=$OCI_TENANCY_OCID
+          region=$OCI_REGION
+          key_file=$HOME/.oci/oci_api_key.pem
+          EOF
+
+          chmod 600 "$HOME/.oci/config"
+
+      - name: Test OCI CLI
+        run: |
+          oci os ns get
+
+      - name: Login to OCIR
+        env:
+          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
+          OCIR_AUTH_TOKEN: ${{ secrets.OCIR_AUTH_TOKEN }}
+        run: |
+          echo "$OCIR_AUTH_TOKEN" | docker login "$OCIR_REGISTRY" \
+            -u "$OCIR_USERNAME" \
+            --password-stdin
+
+      - name: Build and push Docker images
+        env:
+          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
+        run: |
+          TAG=$(date +%Y%m%d%H%M%S)
+          OCIR_NAMESPACE=$(echo "$OCIR_USERNAME" | cut -d '/' -f 1)
+
+          FRONTEND_IMAGE="$OCIR_REGISTRY/$OCIR_NAMESPACE/$FRONTEND_IMAGE_NAME:$TAG"
+          BACKEND_IMAGE="$OCIR_REGISTRY/$OCIR_NAMESPACE/$BACKEND_IMAGE_NAME:$TAG"
+
+          echo "FRONTEND_IMAGE=$FRONTEND_IMAGE" >> $GITHUB_ENV
+          echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> $GITHUB_ENV
+
+          docker build \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="$PUBLIC_API_BASE_URL" \
+            --build-arg API_INTERNAL_BASE_URL="$INTERNAL_API_BASE_URL" \
+            --build-arg NEXT_PUBLIC_USE_PURCHASE_REQUEST_MOCK=false \
+            --build-arg NEXT_PUBLIC_USE_APPROVAL_MOCK=false \
+            --build-arg NEXT_PUBLIC_USE_DASHBOARD_MOCK=false \
+            --build-arg NEXT_PUBLIC_USE_PRODUCT_MOCK=false \
+            --build-arg NEXT_PUBLIC_USE_SUPPLIER_MOCK=false \
+            --build-arg NEXT_PUBLIC_USE_WAREHOUSE_MOCK=false \
+            --build-arg NEXT_PUBLIC_USE_PURCHASE_ORDER_MOCK=false \
+            --build-arg NEXT_PUBLIC_USE_RECEIPT_MOCK=false \
+            --build-arg NEXT_PUBLIC_USE_INSPECTION_MOCK=false \
+            --build-arg NEXT_PUBLIC_USE_STOCK_MOCK=false \
+            -t "$FRONTEND_IMAGE" ./frontend
+
+          docker build -t "$BACKEND_IMAGE" ./backend
+
+          docker push "$FRONTEND_IMAGE"
+          docker push "$BACKEND_IMAGE"
+
+      - name: Configure kubeconfig for OKE
+        env:
+          OKE_CLUSTER_OCID: ${{ secrets.OKE_CLUSTER_OCID }}
+          OCI_REGION: ${{ secrets.OCI_REGION }}
+        run: |
+          mkdir -p "$HOME/.kube"
+
+          oci ce cluster create-kubeconfig \
+            --cluster-id "$OKE_CLUSTER_OCID" \
+            --file "$HOME/.kube/config" \
+            --region "$OCI_REGION" \
+            --token-version 2.0.0 \
+            --kube-endpoint PUBLIC_ENDPOINT
+
+      - name: Check OKE connection
+        run: |
+          kubectl get nodes
+
+      - name: Apply namespace
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+
+      - name: Create app secrets
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          kubectl -n "$K8S_NAMESPACE" create secret generic buyflow-secret \
+            --from-literal=DB_URL="$DB_URL" \
+            --from-literal=DB_USERNAME="$DB_USERNAME" \
+            --from-literal=DB_PASSWORD="$DB_PASSWORD" \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create Oracle wallet secret
+        env:
+          ORACLE_WALLET_ZIP_B64: ${{ secrets.ORACLE_WALLET_ZIP_B64 }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+          mkdir -p wallet
+          echo "$ORACLE_WALLET_ZIP_B64" | base64 -d > wallet.zip
+          unzip -o wallet.zip -d wallet
+
+          kubectl -n "$K8S_NAMESPACE" create secret generic oracle-wallet \
+            --from-file=wallet/ \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create OCIR image pull secret
+        env:
+          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
+          OCIR_AUTH_TOKEN: ${{ secrets.OCIR_AUTH_TOKEN }}
+        run: |
+          kubectl -n "$K8S_NAMESPACE" create secret docker-registry ocir-secret \
+            --docker-server="$OCIR_REGISTRY" \
+            --docker-username="$OCIR_USERNAME" \
+            --docker-password="$OCIR_AUTH_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply config and services
+        run: |
+          kubectl apply -f k8s/configmap.yaml
+          kubectl apply -f k8s/backend-service.yaml
+          kubectl apply -f k8s/frontend-service.yaml
+
+      - name: Update deployment image in manifests
+        run: |
+          sed -i "s|image: .*buyflow-backend:.*|image: $BACKEND_IMAGE|g" k8s/backend-deployment.yaml
+          sed -i "s|image: .*buyflow-frontend:.*|image: $FRONTEND_IMAGE|g" k8s/frontend-deployment.yaml
+
+      - name: Apply deployments
+        run: |
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+
+      - name: Apply ingress
+        run: |
+          kubectl apply -f k8s/ingress.yaml
+
+      - name: Check rollout
+        run: |
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/buyflow-backend
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/buyflow-frontend
+          kubectl -n "$K8S_NAMESPACE" get pods
+          kubectl -n "$K8S_NAMESPACE" get svc
+          kubectl -n "$K8S_NAMESPACE" get ingress
