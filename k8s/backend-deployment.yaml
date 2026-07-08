@@ -30,19 +30,15 @@ spec:
         app.kubernetes.io/part-of: buyflow
 
     spec:
-      imagePullSecrets:
-        - name: ocir-secret
-
-    spec:
       nodeSelector:
         kubernetes.io/arch: arm64
 
       imagePullSecrets:
-        - name: ocir-secret
+        - name: ghcr-secret
 
       containers:
         - name: buyflow-backend
-          image: yny.ocir.io/ax0caghpplpc/buyflow-backend:20260627121655
+          image: ghcr.io/ax0caghpplpc/buyflow-backend:20260627121655
           imagePullPolicy: Always
 
           ports:

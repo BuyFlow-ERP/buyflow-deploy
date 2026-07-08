@@ -3,8 +3,12 @@ name: Deploy BuyFlow to OKE
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 env:
-  OCIR_REGISTRY: yny.ocir.io
+  GHCR_REGISTRY: ghcr.io
   K8S_NAMESPACE: buyflow
 
   FRONTEND_REPO: BuyFlow-ERP/frontend-buyflow
@@ -83,18 +87,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to OCIR
-        env:
-          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
-          OCIR_AUTH_TOKEN: ${{ secrets.OCIR_AUTH_TOKEN }}
+      - name: Login to GHCR
         run: |
-          echo "$OCIR_AUTH_TOKEN" | docker login "$OCIR_REGISTRY" \
-            -u "$OCIR_USERNAME" \
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login "$GHCR_REGISTRY" \
+            -u "${{ github.actor }}" \
             --password-stdin
 
       - name: Build and push Docker images
-        env:
-          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
         run: |
           set -e
 
@@ -107,10 +106,10 @@ jobs:
           test -f ./backend/Dockerfile || (echo "ERROR: ./backend/Dockerfile not found" && ls -la ./backend && exit 1)
 
           TAG=$(date +%Y%m%d%H%M%S)
-          OCIR_NAMESPACE=$(echo "$OCIR_USERNAME" | cut -d '/' -f 1)
+          GHCR_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
 
-          FRONTEND_IMAGE="$OCIR_REGISTRY/$OCIR_NAMESPACE/$FRONTEND_IMAGE_NAME:$TAG"
-          BACKEND_IMAGE="$OCIR_REGISTRY/$OCIR_NAMESPACE/$BACKEND_IMAGE_NAME:$TAG"
+          FRONTEND_IMAGE="$GHCR_REGISTRY/$GHCR_OWNER/$FRONTEND_IMAGE_NAME:$TAG"
+          BACKEND_IMAGE="$GHCR_REGISTRY/$GHCR_OWNER/$BACKEND_IMAGE_NAME:$TAG"
 
           echo "FRONTEND_IMAGE=$FRONTEND_IMAGE" >> $GITHUB_ENV
           echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> $GITHUB_ENV
@@ -169,11 +168,20 @@ jobs:
 
       - name: Create app secrets
         env:
+          K8S_NAMESPACE: buyflow
           DB_URL: ${{ secrets.DB_URL }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
+          set -euo pipefail
+
+          : "${K8S_NAMESPACE:?K8S_NAMESPACE is missing}"
+          : "${DB_URL:?DB_URL secret is missing}"
+          : "${DB_USERNAME:?DB_USERNAME secret is missing}"
+          : "${DB_PASSWORD:?DB_PASSWORD secret is missing}"
+          : "${JWT_SECRET:?JWT_SECRET secret is missing}"
+
           kubectl -n "$K8S_NAMESPACE" create secret generic buyflow-secret \
             --from-literal=DB_URL="$DB_URL" \
             --from-literal=DB_USERNAME="$DB_USERNAME" \
@@ -196,15 +204,15 @@ jobs:
             --from-file=wallet/ \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Create OCIR image pull secret
+      - name: Create GHCR image pull secret
         env:
-          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
-          OCIR_AUTH_TOKEN: ${{ secrets.OCIR_AUTH_TOKEN }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
         run: |
-          kubectl -n "$K8S_NAMESPACE" create secret docker-registry ocir-secret \
-            --docker-server="$OCIR_REGISTRY" \
-            --docker-username="$OCIR_USERNAME" \
-            --docker-password="$OCIR_AUTH_TOKEN" \
+          kubectl -n "$K8S_NAMESPACE" create secret docker-registry ghcr-secret \
+            --docker-server="$GHCR_REGISTRY" \
+            --docker-username="$GHCR_USERNAME" \
+            --docker-password="$GHCR_PAT" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply config and services
