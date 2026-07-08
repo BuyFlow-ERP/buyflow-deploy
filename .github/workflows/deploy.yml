@@ -77,6 +77,12 @@ jobs:
         run: |
           oci os ns get
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to OCIR
         env:
           OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
@@ -109,7 +115,8 @@ jobs:
           echo "FRONTEND_IMAGE=$FRONTEND_IMAGE" >> $GITHUB_ENV
           echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> $GITHUB_ENV
 
-          docker build \
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
             -f ./frontend/Dockerfile \
             --build-arg NEXT_PUBLIC_API_BASE_URL="$PUBLIC_API_BASE_URL" \
             --build-arg API_INTERNAL_BASE_URL="$INTERNAL_API_BASE_URL" \
@@ -123,14 +130,20 @@ jobs:
             --build-arg NEXT_PUBLIC_USE_RECEIPT_MOCK=false \
             --build-arg NEXT_PUBLIC_USE_INSPECTION_MOCK=false \
             --build-arg NEXT_PUBLIC_USE_STOCK_MOCK=false \
-            -t "$FRONTEND_IMAGE" ./frontend
+            -t "$FRONTEND_IMAGE" \
+            --push \
+            ./frontend
 
-          docker build \
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
             -f ./backend/Dockerfile \
-            -t "$BACKEND_IMAGE" ./backend
+            -t "$BACKEND_IMAGE" \
+            --push \
+            ./backend
 
-          docker push "$FRONTEND_IMAGE"
-          docker push "$BACKEND_IMAGE"
+          echo "=== inspect pushed images ==="
+          docker buildx imagetools inspect "$FRONTEND_IMAGE"
+          docker buildx imagetools inspect "$BACKEND_IMAGE"
 
       - name: Configure kubeconfig for OKE
         env:

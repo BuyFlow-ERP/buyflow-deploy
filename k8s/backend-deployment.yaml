@@ -33,6 +33,13 @@ spec:
       imagePullSecrets:
         - name: ocir-secret
 
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+
+      imagePullSecrets:
+        - name: ocir-secret
+
       containers:
         - name: buyflow-backend
           image: yny.ocir.io/ax0caghpplpc/buyflow-backend:20260627121655

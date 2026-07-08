@@ -1,0 +1,70 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    CORS_ALLOWED_ORIGIN: https://buyflow-system.168-110-117-4.nip.io
+    DB_POOL_SIZE: "5"
+    JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Seoul -XX:MaxRAMPercentage=75.0
+    JPA_DDL_AUTO: validate
+    JPA_FORMAT_SQL: "false"
+    JPA_SHOW_SQL: "false"
+    JWT_EXPIRATION_MINUTES: "120"
+    REQUEST_MAPPING_LOG_LEVEL: INFO
+    SERVER_FORWARD_HEADERS_STRATEGY: framework
+    SERVER_PORT: "8080"
+    SPRING_PROFILES_ACTIVE: prod
+    TNS_ADMIN: /app/wallet
+    TZ: Asia/Seoul
+    UPLOAD_DIR: /app/uploads
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"CORS_ALLOWED_ORIGIN":"https://buyflow-system.168-110-117-4.nip.io","DB_POOL_SIZE":"5","JAVA_TOOL_OPTIONS":"-Duser.timezone=Asia/Seoul -XX:MaxRAMPercentage=75.0","JPA_DDL_AUTO":"validate","JPA_FORMAT_SQL":"false","JPA_SHOW_SQL":"false","JWT_EXPIRATION_MINUTES":"120","REQUEST_MAPPING_LOG_LEVEL":"INFO","SERVER_FORWARD_HEADERS_STRATEGY":"framework","SPRING_PROFILES_ACTIVE":"prod","TZ":"Asia/Seoul","UPLOAD_DIR":"/app/uploads"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"app.kubernetes.io/name":"buyflow","app.kubernetes.io/part-of":"buyflow"},"name":"buyflow-config","namespace":"buyflow"}}
+    creationTimestamp: "2026-06-26T09:43:53Z"
+    labels:
+      app.kubernetes.io/name: buyflow
+      app.kubernetes.io/part-of: buyflow
+    name: buyflow-config
+    namespace: buyflow
+    resourceVersion: "1309281"
+    uid: 08cbc74e-840e-4fbe-97e4-3d54d342439a
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDiTCCAnGgAwIBAgIRAOoJKJprBESmyacMZuPlryowDQYJKoZIhvcNAQELBQAw
+      XjEPMA0GA1UEAwwGSzhzIENBMQswCQYDVQQGEwJVUzEPMA0GA1UEBwwGQXVzdGlu
+      MQ8wDQYDVQQKDAZPcmFjbGUxDDAKBgNVBAsMA09jaTEOMAwGA1UECAwFVGV4YXMw
+      HhcNMjYwNjI2MDc0OTIxWhcNMzEwNjI2MDc0OTIxWjBeMQ8wDQYDVQQDDAZLOHMg
+      Q0ExCzAJBgNVBAYTAlVTMQ8wDQYDVQQHDAZBdXN0aW4xDzANBgNVBAoMBk9yYWNs
+      ZTEMMAoGA1UECwwDT2NpMQ4wDAYDVQQIDAVUZXhhczCCASIwDQYJKoZIhvcNAQEB
+      BQADggEPADCCAQoCggEBAIlorF/cftd7SrzaLttmvZVl65EPYWP6i4McRquIBf0P
+      O2tVX3VvftK5jUd2+HVsD02hI3Q3ohUygT9np2pkhr63O2xpWnlkWaOjuHMqBT1E
+      uX7CGfQDQv9AhxPwFE8jP/7nlWPK4x/tLVYE8q9onkTkutEDfXqHVBi3EzjowuOa
+      L1MsnW3QBTKwuwJ29VCNpuFf0w7V8sXm4FqLry4Prr6QoyDtvXrw9Fs/Ej0HovR9
+      mHwEm2RQ85m200Ld7h5iJYG0ZwLfjHZQ5CZbqoV3v0jCAmsrAUeE4F8VnIOnSR47
+      MS32tzXhTkrioJsePHQOvMfosqduVqOSZSUdaNq/61ECAwEAAaNCMEAwDwYDVR0T
+      AQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFN+dQqhwlVtKrZUh
+      wyGowxlalzQrMA0GCSqGSIb3DQEBCwUAA4IBAQB+dGfT1Ic5cIIAiuOZE49PtNLX
+      1BI5TCmGVggVKWTuoNE1yqEeKqNzhV/3TnB4Fvn8T1BewE1EGKdIrUPkRz1Dd8ys
+      9OUY0Cr60wiLCjTc7D5ENgV7gOBugewthjtKeh9jdogW6i5QtTLS4xv8hf0VFfKN
+      ycAYFrmtHEWD6NNqVp/hjwL6jh470W0DXMoBggyPCuNLtgjPb15QM96ktk3L8KaS
+      rBNO3M5y67LI6gvo5uVPyhT1ovbCNXwMMrhbqumf69s5EwsWrCQXSz+oncCkOgrf
+      5yqaqlKRBXM6dywQf1ndnfbDG+l+1aQg/3jAgCNIahaFyueLRUIUsV1UjKXV
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2026-06-26T09:29:43Z"
+    name: kube-root-ca.crt
+    namespace: buyflow
+    resourceVersion: "29158"
+    uid: a82560b0-3a42-4abf-8ac9-883406b0cbcb
+kind: List
+metadata:
+  resourceVersion: ""
