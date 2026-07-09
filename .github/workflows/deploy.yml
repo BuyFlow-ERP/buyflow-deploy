@@ -81,9 +81,6 @@ jobs:
         run: |
           oci os ns get
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -115,7 +112,7 @@ jobs:
           echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> $GITHUB_ENV
 
           docker buildx build \
-            --platform linux/amd64,linux/arm64 \
+            --platform linux/amd64 \
             -f ./frontend/Dockerfile \
             --build-arg NEXT_PUBLIC_API_BASE_URL="$PUBLIC_API_BASE_URL" \
             --build-arg API_INTERNAL_BASE_URL="$INTERNAL_API_BASE_URL" \
@@ -134,7 +131,7 @@ jobs:
             ./frontend
 
           docker buildx build \
-            --platform linux/amd64,linux/arm64 \
+            --platform linux/amd64 \
             -f ./backend/Dockerfile \
             -t "$BACKEND_IMAGE" \
             --push \
