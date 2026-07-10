@@ -1,0 +1,10 @@
+# Kubernetes secrets and cluster backups must not be committed.
+backup-oke/
+*secret*.yaml
+*secret*.yml
+*.kubeconfig
+
+# Local/editor files
+.DS_Store
+.env
+.env.*
